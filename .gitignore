@@ -1,0 +1,5 @@
+analyze.spec
+build/
+dist/
+venv/
+.idea/

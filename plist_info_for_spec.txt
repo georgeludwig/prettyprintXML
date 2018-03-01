@@ -1,0 +1,10 @@
+app = BUNDLE(exe,
+         name='prettyprint',
+         icon='indeed.ico',
+         bundle_identifier=None,
+         info_plist={
+            'CFBundlePackageType': 'APPL',
+            'CFBundleExecutable': 'prettyprint',
+            'CFBundleIconFile': '/Users/gludwig/PycharmProjects/xmlformatter/indeed.ico'
+            },
+         )
