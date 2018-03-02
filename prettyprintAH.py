@@ -43,28 +43,36 @@ def is_ignore(d):
     return False
 
 
-re_CDATA_end = re.compile("]]>")
-# re_greater = re.compile(">")
-# re_less = re.compile("<")
+exceptions = 0
+
+cdataEndRE = re.compile("]]>")
 
 
-def has_datum(chunk):
+def str_match(source, offset, target):
+    if len(target) > len(source) - offset:
+        return False
+    for i in xrange(offset, offset + len(target)):
+        if source[i] != target[i - offset]:
+            return False
+    return True
+
+
+def has_datum(chunk, chunkStart):
+    if chunkStart >= len(chunk):
+        return -1
 
     # datum always starts at 0 index
     # we return -1 if there is no datum
     # other wise we return last index of datum
     # we have a start or end tag
 
-    if chunk.startswith("<![CDATA["):
-        search = re_CDATA_end.search(chunk)
-        idx = -1
-        try:
-            idx = search.regs[0][0] + 3
-        except:
-            pass
-        return idx
+    if str_match(chunk, chunkStart, "<![CDATA["):
+        for i in xrange(chunkStart + 9, len(chunk) - 2):
+            if str_match(chunk, i, "]]>"):
+                return i + 3
+        return -1
 
-    if chunk.startswith("<"):
+    if chunk[chunkStart] == "<":
         # it seems xrange is faster than regex for this
         # search = re_greater.search(chunk)
         # idx = -1
@@ -76,9 +84,9 @@ def has_datum(chunk):
 
         # we have an element
         # look ahead for closing brace
-        for i in xrange(len(chunk)):
+        for i in xrange(chunkStart, len(chunk)):
             if chunk[i] == ">":
-                return i+1
+                return i + 1
     else:
         # it seems xrange is faster than regex for this
         # search = re_less.search(chunk)
@@ -91,7 +99,7 @@ def has_datum(chunk):
 
         # we have text data
         # look forward for opening brace
-        for i in xrange(len(chunk)):
+        for i in xrange(chunkStart, len(chunk)):
             if chunk[i] == "<":
                 return i
 
@@ -106,6 +114,7 @@ class DatumIterator(Iterator):
         self.block_size = block_size  # block_size is # bytes to read at a time from file stream
         self.has_next = False
         self.chunk = ""
+        self.chunkStart = 0
 
     def __iter__(self):
         return self
@@ -116,22 +125,26 @@ class DatumIterator(Iterator):
 
         while 1:
 
+            chunk_length = len(self.chunk)
+
             # check for datum in chunk
-            datum_end = has_datum(self.chunk)
+            datum_end = has_datum(self.chunk, self.chunkStart)
+
             if datum_end > 0:
                 # get datum
-                datum = self.chunk[0:datum_end]
+                datum = self.chunk[self.chunkStart:datum_end]
                 # remove datum from remaining chunk
-                self.chunk = self.chunk[datum_end:]
+                self.chunkStart = datum_end
                 return datum
             else:
+                self.chunk = self.chunk[self.chunkStart:]
+                self.chunkStart = 0
                 # used to check if we've hit EOF
-                current_length = len(self.chunk)
-                # get more data
+                chunk_length = len(self.chunk)
+                # make sure we have data
                 self.chunk += self.file.read(self.block_size)
-                new_length = len(self.chunk)
                 # if pre-read == pre-read+read, we're at EOF
-                if current_length == new_length:
+                if chunk_length == len(self.chunk):
                     go = False
 
             # stop if we're out of data
@@ -142,6 +155,10 @@ class DatumIterator(Iterator):
 infile = sys.argv[1]
 
 charset = get_encoding(infile)
+
+# outfile = infile[0:infile.rindex(".")]+".trns.xml"
+# out = codecs.open(outfile, mode='w', encoding=charset)
+# out = io.open(outfile, mode='w', encoding=charset)
 
 start_time = datetime.now()
 
@@ -174,7 +191,7 @@ for d in iterator:
     end = is_end(d)
 
     if start and end:
-        sys.stdout.write("\n"+d.rjust(indent * 3 + len(d)))
+        sys.stdout.write("\n" + d.rjust(indent * 3 + len(d)))
         prevStart = True
         prevEnd = True
     elif start and not end:
@@ -197,5 +214,5 @@ time = datetime.now() - start_time
 reg3 = re.compile("\\d+:\\d(\\d:\\d+\\.\\d{4})")
 time = re.search(reg3, unicode(time))
 time = "Runtime: %ss" % (time.group(1).encode("utf-8"))
-sys.stderr.write("\n"+time+"\n")
+sys.stderr.write("\n" + time + "\n")
 sys.stderr.write("character encoding " + charset + "\n")
