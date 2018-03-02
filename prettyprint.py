@@ -44,8 +44,6 @@ def is_ignore(d):
 
 
 re_CDATA_end = re.compile("]]>")
-# re_greater = re.compile(">")
-# re_less = re.compile("<")
 
 
 def has_datum(chunk):
@@ -57,12 +55,9 @@ def has_datum(chunk):
 
     if chunk.startswith("<![CDATA["):
         search = re_CDATA_end.search(chunk)
-        idx = -1
-        try:
-            idx = search.regs[0][0] + 3
-        except:
-            pass
-        return idx
+        if search is None:
+            return -1
+        return search.regs[0][0] + 3
 
     if chunk.startswith("<"):
         # it seems xrange is faster than regex for this
@@ -105,6 +100,7 @@ class DatumIterator(Iterator):
         self.file = io.open(filename, mode='r', encoding=encoding)
         self.block_size = block_size  # block_size is # bytes to read at a time from file stream
         self.has_next = False
+        self.encoding = encoding
         self.chunk = ""
 
     def __iter__(self):
@@ -128,7 +124,7 @@ class DatumIterator(Iterator):
                 # used to check if we've hit EOF
                 current_length = len(self.chunk)
                 # get more data
-                self.chunk += self.file.read(self.block_size)
+                self.chunk += self.file.read(self.block_size).encode(self.encoding)
                 new_length = len(self.chunk)
                 # if pre-read == pre-read+read, we're at EOF
                 if current_length == new_length:
@@ -160,8 +156,6 @@ prevStart = False
 prevEnd = False
 
 for d in iterator:
-
-    d = d.encode(charset)
 
     if is_ignore(d):
         continue
