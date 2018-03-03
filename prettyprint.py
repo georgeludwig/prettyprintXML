@@ -58,6 +58,7 @@ def has_datum(chunk):
         if search is None:
             return -1
         return search.regs[0][0] + 3
+        # return chunk.find("]]>", 9)
 
     if chunk.startswith("<"):
         # it seems xrange is faster than regex for this
@@ -71,9 +72,12 @@ def has_datum(chunk):
 
         # we have an element
         # look ahead for closing brace
-        for i in xrange(len(chunk)):
-            if chunk[i] == ">":
-                return i+1
+        # for i in xrange(len(chunk)):
+        #     if chunk[i] == ">":
+        #         return i+1
+        idx = chunk.find(">")
+        if idx > 0:
+            return idx+1
     else:
         # it seems xrange is faster than regex for this
         # search = re_less.search(chunk)
@@ -86,14 +90,37 @@ def has_datum(chunk):
 
         # we have text data
         # look forward for opening brace
-        for i in xrange(len(chunk)):
-            if chunk[i] == "<":
-                return i
+        # for i in xrange(len(chunk)):
+        #     if chunk[i] == "<":
+        #         return i
+        idx = chunk.find("<")
+        if idx > 0:
+            return idx
 
     return -1
 
 
 class DatumIterator(Iterator):
+
+    def found(self, idx):
+        # get datum
+        datum = self.chunk[0:idx]
+        # remove datum from remaining chunk
+        self.chunk = self.chunk[idx:]
+        return datum
+
+    def read(self):
+        # used to check if we've hit EOF
+        current_length = len(self.chunk)
+        # get more data
+        self.cat(self.file.read(self.block_size).encode(self.encoding))
+        new_length = len(self.chunk)
+        # if pre-read == pre-read+read, we're at EOF
+        if current_length == new_length:
+            self.go = False
+
+    def cat(self, new):
+        self.chunk += new
 
     def __init__(self, filename, encoding, block_size):
         self.filename = filename
@@ -102,36 +129,24 @@ class DatumIterator(Iterator):
         self.has_next = False
         self.encoding = encoding
         self.chunk = ""
+        self.go = True
 
     def __iter__(self):
         return self
 
     def __next__(self):
 
-        go = True
-
         while 1:
 
             # check for datum in chunk
             datum_end = has_datum(self.chunk)
             if datum_end > 0:
-                # get datum
-                datum = self.chunk[0:datum_end]
-                # remove datum from remaining chunk
-                self.chunk = self.chunk[datum_end:]
-                return datum
+                return self.found(datum_end)
             else:
-                # used to check if we've hit EOF
-                current_length = len(self.chunk)
-                # get more data
-                self.chunk += self.file.read(self.block_size).encode(self.encoding)
-                new_length = len(self.chunk)
-                # if pre-read == pre-read+read, we're at EOF
-                if current_length == new_length:
-                    go = False
+                self.read()
 
             # stop if we're out of data
-            if not go:
+            if not self.go:
                 raise StopIteration()
 
 
