@@ -16,7 +16,8 @@ def get_encoding(filename):
 
 
 def is_start(d):
-    if d.startswith("<") and d.endswith(">") and not d.endswith("/>") and not d.startswith("</"):
+    # if d.startswith("<") and d.endswith(">") and not d.endswith("/>") and not d.startswith("</"):
+    if d.startswith("<") and not d.startswith("</"):
         return True
     return False
 
@@ -170,6 +171,8 @@ indent = 0
 prevStart = False
 prevEnd = False
 
+firstLine = True
+
 for d in iterator:
 
     if is_ignore(d):
@@ -183,24 +186,28 @@ for d in iterator:
     end = is_end(d)
 
     if start and end:
-        sys.stdout.write("\n"+d.rjust(indent * 3 + len(d)))
-        prevStart = True
-        prevEnd = True
+        if firstLine:
+            sys.stdout.write(d.rjust(indent * 3 + len(d)))
+        else:
+            sys.stdout.write("\n" + d.rjust(indent * 3 + len(d)))
     elif start and not end:
-        sys.stdout.write("\n" + d.rjust(indent * 3 + len(d)))
+        if firstLine:
+            sys.stdout.write(d.rjust(indent * 3 + len(d)))
+        else:
+            sys.stdout.write("\n" + d.rjust(indent * 3 + len(d)))
         indent += 1
-        prevStart = True
-        prevEnd = False
     elif end and not start:
         indent -= 1
-        if prevEnd and not prevStart:
+        # if prevEnd and not prevStart:
+        if prevEnd:
             sys.stdout.write("\n" + d.rjust(indent * 3 + len(d)))
         else:
             sys.stdout.write(d)
-        prevStart = False
-        prevEnd = True
     else:
         sys.stdout.write(d)
+    prevStart = start
+    prevEnd = end
+    firstLine = False
 
 time = datetime.now() - start_time
 reg3 = re.compile("\\d+:\\d(\\d:\\d+\\.\\d{4})")
