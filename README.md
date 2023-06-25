@@ -5,4 +5,4 @@ This is because your editor is trying to read the file a line at a time, and has
 This is normally reasonable, until it tries to load a 6GB file, in which case it crashes with an OOM error even if you have 256GB of available RAM. 
 You might then try insert appropriate CR/LFs by using your system-default XML tools to pretty-print to a new file...but your system default tools will also fail with an OOM error, for the same reason your editor failed. 
 
-If this has happened to you, you'll want to use this program to do your pretty-printing.
+If this has happened to you, you'll want to use this program to do your pretty-printing. Performacne wise, it will pretty-print an XML file of arbitrary size in the time required by your storage system to read the original file and write the new file.  
